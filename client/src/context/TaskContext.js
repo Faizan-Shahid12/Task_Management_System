@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState } from "react"
-import axios from "axios"
+import api from "../config/api"
 
 const TaskContext = createContext()
 
@@ -15,7 +15,7 @@ export const TaskProvider = ({ children }) => {
       setLoading(true)
       setError("")
 
-      const response = await axios.get("/api/tasks")
+      const response = await api.get("/api/tasks")
       setTasks(response.data.tasks || response.data)
     } catch (error) {
       const message = error.response?.data?.message || "Failed to fetch tasks"
@@ -30,7 +30,7 @@ export const TaskProvider = ({ children }) => {
       setLoading(true)
       setError("")
 
-      const response = await axios.post("/api/tasks", taskData)
+      const response = await api.post("/api/tasks", taskData)
       const newTask = response.data.task || response.data
       setTasks([...tasks, newTask])
 
@@ -49,7 +49,7 @@ export const TaskProvider = ({ children }) => {
       setLoading(true)
       setError("")
 
-      const response = await axios.put(`/api/tasks/${id}`, taskData)
+      const response = await api.put(`/api/tasks/${id}`, taskData)
       const updatedTask = response.data.task || response.data
       setTasks(tasks.map((task) => (task.id === id ? updatedTask : task)))
 
@@ -68,7 +68,7 @@ export const TaskProvider = ({ children }) => {
       setLoading(true)
       setError("")
 
-      await axios.delete(`/api/tasks/${id}`)
+      await api.delete(`/api/tasks/${id}`)
       setTasks(tasks.filter((task) => task.id !== id))
 
       return { success: true }
@@ -83,7 +83,7 @@ export const TaskProvider = ({ children }) => {
 
   const toggleTaskStatus = async (id) => {
     try {
-      const response = await axios.patch(`/api/tasks/${id}/toggle`)
+      const response = await api.patch(`/api/tasks/${id}/toggle`)
       const updatedTask = response.data.task || response.data
       setTasks(tasks.map((task) => (task.id === id ? updatedTask : task)))
 
