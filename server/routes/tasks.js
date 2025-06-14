@@ -1,5 +1,5 @@
 const express = require("express")
-const { body, validationResult } = require("express-validator")
+const { body } = require("express-validator")
 const {
   getTasks,
   createTask,
@@ -31,16 +31,7 @@ router.post(
       .withMessage("Title is required and must be between 1-200 characters"),
     body("description").optional().isLength({ max: 1000 }).withMessage("Description cannot exceed 1000 characters"),
     body("priority").optional().isIn(["low", "medium", "high"]).withMessage("Priority must be low, medium, or high"),
-    body("dueDate")
-      .optional()
-      .isISO8601()
-      .withMessage("Due date must be a valid date")
-      .custom((value) => {
-        if (value && new Date(value) < new Date()) {
-          throw new Error("Due date cannot be in the past")
-        }
-        return true
-      }),
+    body("dueDate").optional().isISO8601().withMessage("Due date must be a valid date"),
   ],
   createTask,
 )

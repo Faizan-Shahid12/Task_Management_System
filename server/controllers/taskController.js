@@ -1,5 +1,6 @@
 const { validationResult } = require("express-validator")
 const Task = require("../models/Task")
+const mongoose = require("mongoose")
 
 const getTasks = async (req, res) => {
   try {
@@ -22,11 +23,17 @@ const getTasks = async (req, res) => {
     const sort = {}
     sort[sortBy] = sortOrder === "asc" ? 1 : -1
 
-    const tasks = await Task.find(query).sort(sort).populate("userId", "name email")
+    const tasks = await Task.find(query).sort(sort)
+
+    // Convert MongoDB _id to id for frontend compatibility
+    const tasksWithId = tasks.map((task) => ({
+      ...task.toObject(),
+      id: task._id.toString(),
+    }))
 
     res.json({
-      tasks,
-      count: tasks.length,
+      tasks: tasksWithId,
+      count: tasksWithId.length,
       filters: { status, priority, sortBy, sortOrder },
     })
   } catch (error) {
@@ -57,9 +64,15 @@ const createTask = async (req, res) => {
 
     await task.save()
 
+    // Convert MongoDB _id to id for frontend compatibility
+    const taskWithId = {
+      ...task.toObject(),
+      id: task._id.toString(),
+    }
+
     res.status(201).json({
       message: "Task created successfully",
-      task,
+      task: taskWithId,
     })
   } catch (error) {
     console.error("Create task error:", error)
@@ -86,6 +99,11 @@ const updateTask = async (req, res) => {
     const { id } = req.params
     const { title, description, dueDate, priority } = req.body
 
+    // Validate MongoDB ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid task ID format" })
+    }
+
     const task = await Task.findOneAndUpdate(
       { _id: id, userId: req.user.id },
       {
@@ -101,9 +119,15 @@ const updateTask = async (req, res) => {
       return res.status(404).json({ message: "Task not found" })
     }
 
+    // Convert MongoDB _id to id for frontend compatibility
+    const taskWithId = {
+      ...task.toObject(),
+      id: task._id.toString(),
+    }
+
     res.json({
       message: "Task updated successfully",
-      task,
+      task: taskWithId,
     })
   } catch (error) {
     console.error("Update task error:", error)
@@ -111,10 +135,6 @@ const updateTask = async (req, res) => {
     if (error.name === "ValidationError") {
       const errors = Object.values(error.errors).map((err) => err.message)
       return res.status(400).json({ message: errors[0] })
-    }
-
-    if (error.name === "CastError") {
-      return res.status(400).json({ message: "Invalid task ID" })
     }
 
     res.status(500).json({ message: "Internal server error" })
@@ -125,6 +145,11 @@ const deleteTask = async (req, res) => {
   try {
     const { id } = req.params
 
+    // Validate MongoDB ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid task ID format" })
+    }
+
     const task = await Task.findOneAndDelete({ _id: id, userId: req.user.id })
 
     if (!task) {
@@ -133,15 +158,13 @@ const deleteTask = async (req, res) => {
 
     res.json({
       message: "Task deleted successfully",
-      deletedTask: task,
+      deletedTask: {
+        ...task.toObject(),
+        id: task._id.toString(),
+      },
     })
   } catch (error) {
     console.error("Delete task error:", error)
-
-    if (error.name === "CastError") {
-      return res.status(400).json({ message: "Invalid task ID" })
-    }
-
     res.status(500).json({ message: "Internal server error" })
   }
 }
@@ -149,6 +172,11 @@ const deleteTask = async (req, res) => {
 const toggleTaskStatus = async (req, res) => {
   try {
     const { id } = req.params
+
+    // Validate MongoDB ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid task ID format" })
+    }
 
     const task = await Task.findOne({ _id: id, userId: req.user.id })
 
@@ -159,17 +187,18 @@ const toggleTaskStatus = async (req, res) => {
     task.completed = !task.completed
     await task.save() // This will trigger the pre-save hook to set completedAt
 
+    // Convert MongoDB _id to id for frontend compatibility
+    const taskWithId = {
+      ...task.toObject(),
+      id: task._id.toString(),
+    }
+
     res.json({
       message: "Task status updated successfully",
-      task,
+      task: taskWithId,
     })
   } catch (error) {
     console.error("Toggle task error:", error)
-
-    if (error.name === "CastError") {
-      return res.status(400).json({ message: "Invalid task ID" })
-    }
-
     res.status(500).json({ message: "Internal server error" })
   }
 }
@@ -177,7 +206,7 @@ const toggleTaskStatus = async (req, res) => {
 // Get task statistics
 const getTaskStats = async (req, res) => {
   try {
-    const userId = req.user.id
+    const userId = new mongoose.Types.ObjectId(req.user.id)
 
     const stats = await Task.aggregate([
       { $match: { userId: userId } },
